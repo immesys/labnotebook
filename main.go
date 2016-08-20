@@ -156,10 +156,10 @@ func procrecordchan() {
 								vv, _ = strconv.ParseFloat(s, 64)
 							}
 						}
-						if first {
+						if !first {
 							m_buffer.Write([]byte{','})
-							first = false
 						}
+						first = false
 						m_buffer.Write([]byte(k[3:]))
 						m_buffer.Write([]byte{'='})
 						m_buffer.Write([]byte(strconv.FormatFloat(vv, 'f', 6, 64)))
@@ -173,10 +173,11 @@ func procrecordchan() {
 						if err != nil {
 							panic(err)
 						}
-						fmt.Println("wrote metrix")
 						bd, _ := ioutil.ReadAll(resp.Body)
-						fmt.Println("bd: ", string(bd))
-						fmt.Println("cd: ", resp.StatusCode)
+						if resp.StatusCode != 200 {
+							fmt.Println("got code: ", resp.StatusCode)
+							fmt.Println("body: ", string(bd))
+						}
 						resp.Body.Close()
 						m_buffer.Reset()
 						lastM = time.Now()
