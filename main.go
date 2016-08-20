@@ -98,7 +98,7 @@ func procrecordchan() {
 					doc["sourcetime_ok"] = true
 				}
 				doc["logtime"] = time.Now()
-				_, err = r.DB("nb").Table("recs").Insert(doc).RunWrite(session)
+				_, err = r.DB("nb").Table("recs").Insert(doc).InTimezone("-08:00").RunWrite(session)
 				if err != nil {
 					panic(err)
 				}
