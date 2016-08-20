@@ -50,6 +50,7 @@ func handleConnection(c net.Conn) {
 			return
 		}
 		newRecord(r)
+		fmt.Println("inserted record")
 	}
 }
 
