@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"encoding/gob"
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -95,9 +98,11 @@ func procrecordchan() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-
+	metrix := mustEnv("NB_INFLUX")
 	for i := 0; i < 10; i++ {
 		go func() {
+			lastM := time.Now()
+			m_buffer := &bytes.Buffer{}
 			for {
 				doc := <-recordchan
 				doc = normalize(doc)
@@ -116,6 +121,44 @@ func procrecordchan() {
 				_, err = r.DB("nb").Table("recs").Insert(doc).RunWrite(session)
 				if err != nil {
 					panic(err)
+				}
+				dots := false
+				for k, _ := range doc {
+					if strings.HasPrefix("ts_", k) {
+						dots = true
+						break
+					}
+				}
+				if dots {
+					m_buffer.Write([]byte(doc["m"].(string)))
+					for k, v := range doc {
+						if strings.HasPrefix("mt_", k) {
+							m_buffer.Write([]byte{','})
+							m_buffer.Write([]byte(k[3:]))
+							m_buffer.Write([]byte{'='})
+							m_buffer.Write([]byte(v.(string)))
+						}
+					}
+					for k, v := range doc {
+						if !strings.HasPrefix("ts_", k) {
+							m_buffer.Write([]byte{','})
+							m_buffer.Write([]byte(k[3:]))
+							m_buffer.Write([]byte{'='})
+							m_buffer.Write([]byte(strconv.FormatFloat(v.(float64), 'f', 6, 64)))
+						}
+					}
+					m_buffer.Write([]byte(" "))
+					m_buffer.Write([]byte(strconv.FormatInt(doc["sourcetime"].(time.Time).UnixNano(), 10)))
+					m_buffer.Write([]byte("\n"))
+					if time.Now().After(lastM.Add(time.Second)) {
+						resp, err := http.Post(fmt.Sprintf("http://%s/write?db=metrix", metrix), "text/plain", m_buffer)
+						if err != nil {
+							panic(err)
+						}
+						resp.Body.Close()
+						m_buffer.Reset()
+						lastM = time.Now()
+					}
 				}
 			}
 		}()
