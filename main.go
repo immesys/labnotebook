@@ -172,7 +172,8 @@ func procrecordchan() {
 						}
 						fmt.Println("wrote metrix")
 						bd, _ := ioutil.ReadAll(resp.Body)
-						fmt.Println("bd: ", bd)
+						fmt.Println("bd: ", string(bd))
+						fmt.Println("cd: ", resp.StatusCode)
 						resp.Body.Close()
 						m_buffer.Reset()
 						lastM = time.Now()
