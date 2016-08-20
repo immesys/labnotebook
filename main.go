@@ -142,7 +142,7 @@ func procrecordchan() {
 					for k, v := range doc {
 						vv, ok := v.(float64)
 						if !ok {
-							i, ok := vv.(int64)
+							i, ok := v.(int64)
 							if ok {
 								vv = float64(i)
 							} else {
