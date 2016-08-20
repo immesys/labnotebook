@@ -13,6 +13,7 @@ import (
 )
 
 var recordchan chan map[string]interface{}
+var la *time.Location
 
 func mustEnv(key string) string {
 	rv := os.Getenv(key)
@@ -23,6 +24,11 @@ func mustEnv(key string) string {
 	return rv
 }
 func main() {
+	var err error
+	la, err = time.LoadLocation("America/Los_Angeles")
+	if err != nil {
+		panic(err)
+	}
 	recordchan = make(chan map[string]interface{}, 10000)
 	listenip := mustEnv("NB_LISTEN_ADDR")
 	go procrecordchan()
@@ -67,7 +73,7 @@ func normalize(r map[string]interface{}) map[string]interface{} {
 	rv := make(map[string]interface{})
 	for k, v := range r {
 		if strings.ToLower(k) == "sourcetime" {
-			rv[strings.ToLower(k)] = time.Unix(0, v.(int64))
+			rv[strings.ToLower(k)] = time.Unix(0, v.(int64)).In(la)
 		} else {
 			rv[strings.ToLower(k)] = v
 		}
@@ -81,6 +87,7 @@ func procrecordchan() {
 	if err != nil {
 		log.Fatalln(err)
 	}
+
 	for i := 0; i < 10; i++ {
 		go func() {
 			for {
@@ -92,14 +99,13 @@ func procrecordchan() {
 				}
 				_, ok = doc["sourcetime"]
 				if !ok {
-					doc["sourcetime"] = time.Now()
+					doc["sourcetime"] = time.Now().In(la)
 					doc["sourcetime_ok"] = false
 				} else {
 					doc["sourcetime_ok"] = true
 				}
-				doc["logtime"] = time.Now()
-				fmt.Println("time was:", time.Now().String())
-				_, err = r.DB("nb").Table("recs").Insert(doc).InTimezone("-08:00").RunWrite(session)
+				doc["logtime"] = time.Now().In(la)
+				_, err = r.DB("nb").Table("recs").Insert(doc).RunWrite(session)
 				if err != nil {
 					panic(err)
 				}
