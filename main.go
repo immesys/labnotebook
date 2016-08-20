@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	r "github.com/dancannon/gorethink"
@@ -14,6 +15,7 @@ import (
 
 var recordchan chan map[string]interface{}
 var la *time.Location
+var total int64
 
 func mustEnv(key string) string {
 	rv := os.Getenv(key)
@@ -36,6 +38,12 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	go func() {
+		for {
+			time.Sleep(5 * time.Second)
+			fmt.Println("total records inserted: ", atomic.LoadInt64(&total))
+		}
+	}()
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -51,18 +59,18 @@ func handleConnection(c net.Conn) {
 		var r map[string]interface{}
 		err := enc.Decode(&r)
 		if err != nil {
-			fmt.Println("gob error: " + err.Error())
+			if err.Error() != "EOF" {
+				fmt.Println("gob error: " + err.Error())
+			}
 			c.Close()
 			return
-		} else {
-			fmt.Println("got: ", r)
 		}
 		newRecord(r)
-		fmt.Println("inserted record")
 	}
 }
 
 func newRecord(r map[string]interface{}) {
+	atomic.AddInt64(&total, 1)
 	select {
 	case recordchan <- r:
 	default:
