@@ -48,6 +48,8 @@ func handleConnection(c net.Conn) {
 			fmt.Println("gob error: " + err.Error())
 			c.Close()
 			return
+		} else {
+			fmt.Println("got: ", r)
 		}
 		newRecord(r)
 		fmt.Println("inserted record")
