@@ -45,7 +45,9 @@ func handleConnection(c net.Conn) {
 		var r map[string]interface{}
 		err := enc.Decode(&r)
 		if err != nil {
-			panic("gob error:" + err.Error())
+			fmt.Println("gob error: " + err.Error())
+			c.Close()
+			return
 		}
 		newRecord(r)
 	}
