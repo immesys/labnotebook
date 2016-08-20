@@ -124,7 +124,7 @@ func procrecordchan() {
 				}
 				dots := false
 				for k, _ := range doc {
-					if strings.HasPrefix("ts_", k) {
+					if strings.HasPrefix(k, "ts_") {
 						dots = true
 						break
 					}
@@ -132,7 +132,7 @@ func procrecordchan() {
 				if dots {
 					m_buffer.Write([]byte(doc["m"].(string)))
 					for k, v := range doc {
-						if strings.HasPrefix("mt_", k) {
+						if strings.HasPrefix(k, "mt_") {
 							m_buffer.Write([]byte{','})
 							m_buffer.Write([]byte(k[3:]))
 							m_buffer.Write([]byte{'='})
@@ -140,7 +140,7 @@ func procrecordchan() {
 						}
 					}
 					for k, v := range doc {
-						if !strings.HasPrefix("ts_", k) {
+						if !strings.HasPrefix(k, "ts_") {
 							m_buffer.Write([]byte{','})
 							m_buffer.Write([]byte(k[3:]))
 							m_buffer.Write([]byte{'='})
