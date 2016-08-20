@@ -66,7 +66,11 @@ func newRecord(r map[string]interface{}) {
 func normalize(r map[string]interface{}) map[string]interface{} {
 	rv := make(map[string]interface{})
 	for k, v := range r {
-		rv[strings.ToLower(k)] = v
+		if strings.ToLower(k) == "sourcetime" {
+			rv[strings.ToLower(k)] = time.Unix(0, v.(int64))
+		} else {
+			rv[strings.ToLower(k)] = v
+		}
 	}
 	return rv
 }
