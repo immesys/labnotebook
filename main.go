@@ -141,6 +141,7 @@ func procrecordchan() {
 						}
 					}
 					m_buffer.Write([]byte(" "))
+					first := true
 					for k, v := range doc {
 						if !strings.HasPrefix(k, "ts_") {
 							continue
@@ -155,8 +156,10 @@ func procrecordchan() {
 								vv, _ = strconv.ParseFloat(s, 64)
 							}
 						}
-
-						m_buffer.Write([]byte{','})
+						if first {
+							m_buffer.Write([]byte{','})
+							first = false
+						}
 						m_buffer.Write([]byte(k[3:]))
 						m_buffer.Write([]byte{'='})
 						m_buffer.Write([]byte(strconv.FormatFloat(vv, 'f', 6, 64)))
