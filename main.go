@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -169,6 +170,8 @@ func procrecordchan() {
 							panic(err)
 						}
 						fmt.Println("wrote metrix")
+						bd, _ := ioutil.ReadAll(resp.Body)
+						fmt.Println("bd: ", bd)
 						resp.Body.Close()
 						m_buffer.Reset()
 						lastM = time.Now()
