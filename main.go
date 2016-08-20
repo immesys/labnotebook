@@ -155,6 +155,7 @@ func procrecordchan() {
 						if err != nil {
 							panic(err)
 						}
+						fmt.Println("wrote metrix")
 						resp.Body.Close()
 						m_buffer.Reset()
 						lastM = time.Now()
