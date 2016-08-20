@@ -140,6 +140,7 @@ func procrecordchan() {
 							m_buffer.Write([]byte(v.(string)))
 						}
 					}
+					m_buffer.Write([]byte(" "))
 					for k, v := range doc {
 						if !strings.HasPrefix(k, "ts_") {
 							continue
