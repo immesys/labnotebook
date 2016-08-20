@@ -174,7 +174,7 @@ func procrecordchan() {
 							panic(err)
 						}
 						bd, _ := ioutil.ReadAll(resp.Body)
-						if resp.StatusCode != 200 {
+						if resp.StatusCode != 204 {
 							fmt.Println("got code: ", resp.StatusCode)
 							fmt.Println("body: ", string(bd))
 						}
