@@ -35,7 +35,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	recordchan = make(chan map[string]interface{}, 10000)
+	recordchan = make(chan map[string]interface{}, 1000000)
 	listenip := mustEnv("NB_LISTEN_ADDR")
 	go procrecordchan()
 	ln, err := net.Listen("tcp", listenip+":4050")
@@ -90,6 +90,18 @@ func normalize(r map[string]interface{}) map[string]interface{} {
 			rv[strings.ToLower(k)] = v
 		}
 	}
+	_, ok := rv["m"]
+	if !ok {
+		rv["m"] = "default"
+	}
+	_, ok = rv["sourcetime"]
+	if !ok {
+		rv["sourcetime"] = time.Now().In(la)
+		rv["sourcetime_ok"] = false
+	} else {
+		rv["sourcetime_ok"] = true
+	}
+	rv["logtime"] = time.Now().In(la)
 	return rv
 }
 func procrecordchan() {
@@ -105,89 +117,89 @@ func procrecordchan() {
 			lastM := time.Now()
 			m_buffer := &bytes.Buffer{}
 			for {
-				doc := <-recordchan
-				doc = normalize(doc)
-				_, ok := doc["m"]
-				if !ok {
-					doc["m"] = "default"
-				}
-				_, ok = doc["sourcetime"]
-				if !ok {
-					doc["sourcetime"] = time.Now().In(la)
-					doc["sourcetime_ok"] = false
-				} else {
-					doc["sourcetime_ok"] = true
-				}
-				doc["logtime"] = time.Now().In(la)
-				_, err = r.DB("nb").Table("recs").Insert(doc).RunWrite(session)
-				if err != nil {
-					panic(err)
-				}
-				dots := false
-				for k, _ := range doc {
-					if strings.HasPrefix(k, "ts_") {
-						dots = true
+				docz := []map[string]interface{}{<-recordchan}
+				for b := 0; b < 500; b++ {
+					select {
+					case doc := <-recordchan:
+						docz = append(docz, doc)
+					default:
 						break
 					}
 				}
-				if dots {
-					m_buffer.Write([]byte(doc["m"].(string)))
-					for k, v := range doc {
-						if strings.HasPrefix(k, "mt_") {
-							m_buffer.Write([]byte{','})
-							m_buffer.Write([]byte(k[3:]))
-							m_buffer.Write([]byte{'='})
-							m_buffer.Write([]byte(v.(string)))
+				for idx := range docz {
+					docz[idx] = normalize(docz[idx])
+				}
+				_, err = r.DB("nb").Table("recs").Insert(docz).RunWrite(session)
+				if err != nil {
+					panic(err)
+				}
+				for _, doc := range docz {
+					dots := false
+					for k, _ := range doc {
+						if strings.HasPrefix(k, "ts_") {
+							dots = true
+							break
 						}
 					}
-					m_buffer.Write([]byte(",hostname="))
-					m_buffer.Write([]byte(doc["hostname"].(string)))
-					m_buffer.Write([]byte(",progname="))
-					m_buffer.Write([]byte(doc["progname"].(string)))
-					m_buffer.Write([]byte(" "))
-					first := true
-					for k, v := range doc {
-						if !strings.HasPrefix(k, "ts_") {
-							continue
-						}
-						vv, ok := v.(float64)
-						if !ok {
-							i, ok := v.(int64)
-							if ok {
-								vv = float64(i)
-							} else {
-								s := v.(string)
-								vv, _ = strconv.ParseFloat(s, 64)
+					if dots {
+						m_buffer.Write([]byte(doc["m"].(string)))
+						for k, v := range doc {
+							if strings.HasPrefix(k, "mt_") {
+								m_buffer.Write([]byte{','})
+								m_buffer.Write([]byte(k[3:]))
+								m_buffer.Write([]byte{'='})
+								m_buffer.Write([]byte(v.(string)))
 							}
 						}
-						if !first {
-							m_buffer.Write([]byte{','})
-						}
-						first = false
-						m_buffer.Write([]byte(k[3:]))
-						m_buffer.Write([]byte{'='})
-						m_buffer.Write([]byte(strconv.FormatFloat(vv, 'f', 6, 64)))
+						m_buffer.Write([]byte(",hostname="))
+						m_buffer.Write([]byte(doc["hostname"].(string)))
+						m_buffer.Write([]byte(",progname="))
+						m_buffer.Write([]byte(doc["progname"].(string)))
+						m_buffer.Write([]byte(" "))
+						first := true
+						for k, v := range doc {
+							if !strings.HasPrefix(k, "ts_") {
+								continue
+							}
+							vv, ok := v.(float64)
+							if !ok {
+								i, ok := v.(int64)
+								if ok {
+									vv = float64(i)
+								} else {
+									s := v.(string)
+									vv, _ = strconv.ParseFloat(s, 64)
+								}
+							}
+							if !first {
+								m_buffer.Write([]byte{','})
+							}
+							first = false
+							m_buffer.Write([]byte(k[3:]))
+							m_buffer.Write([]byte{'='})
+							m_buffer.Write([]byte(strconv.FormatFloat(vv, 'f', 6, 64)))
 
-					}
-					m_buffer.Write([]byte(" "))
-					m_buffer.Write([]byte(strconv.FormatInt(doc["sourcetime"].(time.Time).UnixNano(), 10)))
-					m_buffer.Write([]byte("\n"))
-					if time.Now().After(lastM.Add(time.Second)) {
-						resp, err := http.Post(fmt.Sprintf("http://%s/write?db=metrix", metrix), "text/plain", m_buffer)
-						if err != nil {
-							panic(err)
 						}
-						bd, _ := ioutil.ReadAll(resp.Body)
-						if resp.StatusCode != 204 {
-							fmt.Println("got code: ", resp.StatusCode)
-							fmt.Println("body: ", string(bd))
+						m_buffer.Write([]byte(" "))
+						m_buffer.Write([]byte(strconv.FormatInt(doc["sourcetime"].(time.Time).UnixNano(), 10)))
+						m_buffer.Write([]byte("\n"))
+						if time.Now().After(lastM.Add(time.Second)) {
+							resp, err := http.Post(fmt.Sprintf("http://%s/write?db=metrix", metrix), "text/plain", m_buffer)
+							if err != nil {
+								panic(err)
+							}
+							bd, _ := ioutil.ReadAll(resp.Body)
+							if resp.StatusCode != 204 {
+								fmt.Println("got code: ", resp.StatusCode)
+								fmt.Println("body: ", string(bd))
+							}
+							resp.Body.Close()
+							m_buffer.Reset()
+							lastM = time.Now()
 						}
-						resp.Body.Close()
-						m_buffer.Reset()
-						lastM = time.Now()
 					}
-				}
-			}
+				} //end foreach doc
+			} //end for ever
 		}()
 	}
 	for {
