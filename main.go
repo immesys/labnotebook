@@ -140,6 +140,8 @@ func procrecordchan() {
 							m_buffer.Write([]byte(v.(string)))
 						}
 					}
+					m_buffer.Write([]byte(",hostname="))
+					m_buffer.Write([]byte(doc["hostname"].(string)))
 					m_buffer.Write([]byte(" "))
 					first := true
 					for k, v := range doc {
